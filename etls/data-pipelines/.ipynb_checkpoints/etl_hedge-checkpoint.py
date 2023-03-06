@@ -13,9 +13,9 @@ from etl_functions import (RemoveP50P90TypeHedge, CreateDataFrame,
                                      ReadExcelFile, SelectColumns,CreateMiniDataFrame
                                      )
 
-ChooseCwd(cwd='D:\git-local-cwd\portfolio-modeling')
+#ChooseCwd(cwd='D:\git-local-cwd\portfolio-modeling')
 #Load Config
-config_file=os.path.join(os.path.dirname("__file__"), 'config/config.ini')
+config_file=os.path.join(os.path.dirname("__file__"), 'etls/config/config.ini')
 config=configparser.ConfigParser()
 config.read(config_file)
 

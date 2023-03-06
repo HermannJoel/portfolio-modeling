@@ -3,19 +3,17 @@ import numpy as np
 xrange = range
 import os
 import configparser
+from pandasql import sqldf
+pysqldf=lambda q: sqldf(q, globals())
 from datetime import datetime
 import datetime as dt
 import sys
-import warnings
-from pandas.core.common import SettingWithCopyWarning
-warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
 
 # adding etls/functions to the system path
 sys.path.insert(0, 'D:/git-local-cwd/portfolio-modeling/etls/functions')
 from etl_functions import (RemoveP50P90TypeHedge, CreateDataFrame, 
                            MergeDataFrame, AdjustedByPct, ChooseCwd,
-                           RemoveP50P90, ReadExcelFile, SelectColumns,CreateMiniDataFrame
-                                     )
+                           RemoveP50P90, ReadExcelFile, SelectColumns,CreateMiniDataFrame)
 
 ChooseCwd(cwd='D:\git-local-cwd\portfolio-modeling')
 #Load Config
@@ -28,38 +26,66 @@ eng_conn=config['develop']['conn_str']
 dest_dir=os.path.join(os.path.dirname("__file__"),config['develop']['dest_dir'])
 src_dir=os.path.join(os.path.dirname("__file__"),config['develop']['src_dir'])
 vmr=os.path.join(os.path.dirname("__file__"),config['develop']['vmr'])
+planif=os.path.join(os.path.dirname("__file__"),config['develop']['planif'])
 
+dest_dir="//DESKTOP-JDQLDT1/SharedFolder/d-eng/in/"
+vmr="//DESKTOP-JDQLDT1/SharedFolder/d-eng/in/Volumes_Market_Repowering.xlsx"
+planif="//DESKTOP-JDQLDT1/SharedFolder/d-eng/in/Outils planification agrege 2022-2024.xlsm"
 
-def Extract(asset_vmr_path):
+def Extract(asset_vmr_path, asset_planif_path):
     ''' Function to extract excel files.
     Parameters
     ==========
     asset_vmr_path: str
-        asset template file path
-            
+        path excel file containing data asset in prod
+    asset_planif_path: str
+        path excel file containing data asset in planif    
     Returns
     =======
     df_asset_vmr: DataFrame
         asset vmr dataframe
+    df_planif: DataFrame
+        asset planif dataframe
     '''
     try:
         df_asset_vmr=ReadExcelFile(asset_vmr_path, sheet_name="vmr", header=0)
-        return df_asset_vmr
+        df_asset_planif=ReadExcelFile(asset_planif_path, sheet_name="Planification", header=20, 
+                                      usecols=['#', 'Nom', 'Technologie', 'Puissance totale (pour les  repowering)', 
+                                               'date MSI depl', "date d'entrée dans statut S", 'Taux de réussite'])
+        return df_asset_vmr, df_asset_planif 
     except Exception as e:
         print("Data Extraction error!: "+str(e))
 
-df_asset_vmr=Extract(asset_vmr_path=vmr)
+df_asset_vmr, df_asset_planif=Extract(asset_vmr_path=vmr, asset_planif_path=planif)
 
-def TransformAssetVmr(df):
+def Transform(**kwargs):
+    """
+    udf Function to generate template asset
+    Parameters
+    ===========
+    **kwargs
+        asset_vmr: DataFrame
+                
+        asset_planif: DataFrame
+    Returns
+    =======
+    asset_vmr_planif: DataFrame
+        template asset dataframe
+    
+    """
+    print('create template asset starts!:\n')
     try:
         #To create a list containing parcs that are out of service
         out_projets = ["Bougainville", "Cham Longe 1", "Evits et Josaphats", "Remise Reclainville", 
                         "Evits et Josaphats", "Remise Reclainville", "Maurienne / Gourgançon", "La Bouleste", 
                         "Cham Longe 1 - off", "Remise Reclainville - off", "Evits et Josaphats - off", "Bougainville - off", 
                         "Maurienne / Gourgançon - off", "Saint-André - off"]
-
-        df.rename(columns = {"Alias":"projet", "Technologie":"technologie", "COD":"cod", "MW 100%":"mw", "Taux succès":"taux_succès", 
-                              "MW pondérés":"puissance_installée", "EOH":"eoh","Mécanisme":"type_hedge", "Début FiT ajusté":"date_debut", 
+        
+        df=kwargs["asset_vmr"]
+        df.rename(columns = {"Alias":"projet", "Technologie":"technologie", 
+                             "COD":"cod", "MW 100%":"mw", "Taux succès":"taux_succès", 
+                              "MW pondérés":"puissance_installée", "EOH":"eoh", 
+                             "Mécanisme":"type_hedge", "Début FiT ajusté":"date_debut", 
                               "Date Merchant":"date_merchant"}, inplace = True)
 
         #Drop rows that contain any value in the list and reset index
@@ -75,7 +101,7 @@ def TransformAssetVmr(df):
         df["technologie"] = df["technologie"].str.replace("PV", "solaire")
         #To set "taux_succès" of all parcs in exploitation equal to 100%
         df["taux_succès"] = 1
-        #To compute pnderated "puissance_installée"
+        #To compute pondered "puissance_installée"
         df["puissance_installée"] = df["mw"] * df["taux_succès"]
         #To set "date_dementelement" 6 months before "date_msi"
         df["date_dementelement"] = df["date_msi"] - pd.DateOffset(months=6)
@@ -83,15 +109,16 @@ def TransformAssetVmr(df):
         df["en_planif"] = "Non"
 
         df = df.assign(asset_id=[1 + i for i in xrange(len(df))])[['asset_id'] + df.columns.tolist()]
-        df = df.assign(rw_id=[1 + i for i in xrange(len(df))])[['rw_id'] + df.columns.tolist()]
+        df = df.assign(id=[1 + i for i in xrange(len(df))])[['id'] + df.columns.tolist()]
 
-        df_asset = df[["rw_id","asset_id", "projet_id", "projet", "technologie", "cod", "mw", "taux_succès", "puissance_installée", 
-                       "type_hedge", "date_debut", "eoh", "date_merchant", "date_dementelement", "repowering", 
+        df_asset = df[["id","asset_id", "projet_id", "projet", "technologie", "cod", "mw", 
+                       "taux_succès", "puissance_installée", "type_hedge", "date_debut", 
+                       "eoh", "date_merchant", "date_dementelement", "repowering", 
                         "date_msi", "en_planif"]]
 
         #To create a df containing projects with a cod>= 2023 
         vmr_to_planif = df_asset[df_asset['cod'] > (dt.datetime.today() + pd.offsets.YearEnd()).strftime('%Y-%m-%d')]
-        vmr_to_planif = vmr_to_planif[["rw_id", "asset_id", "projet_id", "projet", "technologie", "cod", "mw", "taux_succès", 
+        vmr_to_planif = vmr_to_planif[["id", "asset_id", "projet_id", "projet", "technologie", "cod", "mw", "taux_succès", 
                                         "puissance_installée", "eoh", "date_merchant", "date_dementelement", 
                                         "repowering", "date_msi", "en_planif"]]
 
@@ -99,39 +126,32 @@ def TransformAssetVmr(df):
         df_asset=df_asset[df_asset['cod'] <= (dt.datetime.today() + pd.offsets.YearEnd()).strftime('%Y-%m-%d')]
 
         #To select specific rows to create a hedge df
-        hedge_vmr=df_asset[["rw_id", "projet_id", "projet", "technologie", "type_hedge", "cod", 
-                               "date_merchant", "date_dementelement", "puissance_installée", "en_planif"]]
+        hedge_vmr=df_asset[["id", "projet_id", "projet", "technologie", "type_hedge", "cod", 
+                            "date_merchant", "date_dementelement", "puissance_installée", "en_planif"]]
         #To create a column containing hedge_id
         hedge_vmr = hedge_vmr.assign(hedge_id=[1 + i for i in xrange(len(hedge_vmr))])[['hedge_id'] + hedge_vmr.columns.tolist()]
         #To select specific columns 
-        hedge_vmr = hedge_vmr[["rw_id", "hedge_id", "projet_id", "projet", "technologie", "type_hedge", "cod", 
-                                "date_merchant", "date_dementelement", "puissance_installée", "en_planif"]]
+        hedge_vmr = hedge_vmr[["id", "hedge_id", "projet_id", "projet", "technologie", "type_hedge", "cod", 
+                               "date_merchant", "date_dementelement", "puissance_installée", "en_planif"]]
         #Select specific columns to create asset template    
-        df_asset=df_asset[["rw_id", "asset_id", "projet_id", "projet", "technologie", "cod", "mw", "taux_succès", "puissance_installée", 
-                              "eoh", "date_merchant", "date_dementelement", "repowering", "date_msi", "en_planif"]]
+        df_asset_vmr=df_asset[["id", "asset_id", "projet_id", "projet", "technologie", 
+                           "cod", "mw", "taux_succès","puissance_installée", "eoh", 
+                           "date_merchant", "date_dementelement", "repowering", 
+                           "date_msi", "en_planif"]]
 
         #To make export as excel files
-        vmr_to_planif.to_excel(path_dir_temp+"asset_vmr_to_planif.xlsx", index=False, float_format="%.3f")#This file contains data of assets still in planification but were in assets in planification. 
-        df_asset.to_excel(path_dir_temp + "projet_names.xlsx", index=False, columns=["asset_id", "projet_id", "projet"])
-        hedge_vmr.to_excel(path_dir_temp + "hedge_vmr.xlsx", index=False, float_format="%.3f")#This file contains data tha will be used to create hedge template of assets in production.
+        #vmr_to_planif.to_excel(path_dir_temp+"asset_vmr_to_planif.xlsx", index=False, float_format="%.3f")#This file contains data of assets still in planification but were in assets in planification. 
+        #df_asset.to_excel(path_dir_temp + "projet_names.xlsx", index=False, columns=["asset_id", "projet_id", "projet"])
+        #hedge_vmr.to_excel(path_dir_temp + "hedge_vmr.xlsx", index=False, float_format="%.3f")#This file contains data tha will be used to create hedge template of assets in production.
         #To create a partial template asset that contains only data of assets in production.
-        df_asset.to_excel(path_dir_temp + "template_asset_vmr.xlsx", index=False, float_format="%.3f") 
-
+        #df_asset.to_excel(path_dir_temp + "template_asset_vmr.xlsx", index=False, float_format="%.3f") 
 
         #This part of the code is to preprocess data of assets in planification
         #==============================================================================
         #=============== Data preprocessing  of Asset in palnification  ===============
         #==============================================================================
         #To import data frame containing projects in planification
-        df = pd.read_excel(path_dir_in+"Outils planification agrege 2022-2024.xlsm", sheet_name="Planification", header=20, 
-                            usecols=['#', 'Nom', 'Technologie', 'Puissance totale (pour les  repowering)', 
-                                     'date MSI depl', "date d'entrée dans statut S", 'Taux de réussite'])
-
-        #To import hedge 
-        hedge_vmr=pd.read_excel(path_dir_temp+"hedge_vmr.xlsx")
-        #To import asset 
-        asset_vmr=pd.read_excel(path_dir_temp+"template_asset_vmr.xlsx") 
-
+        df=kwargs["asset_planif"] 
         #To drop all projects with "Nom" as optimisation 
         rows_to_drop = sqldf("select * from df where Nom like 'optimisation%';", locals())
         rows_to_drop = list(rows_to_drop['Nom'])
@@ -151,7 +171,6 @@ def TransformAssetVmr(df):
                               'Taux de réussite':'taux_succès'}, inplace=True)
 
         #drop optimisation
-        #df5.loc[df5['Nom'].isin([rows_to_drop])]
         df = df[df.projet.isin(rows_to_drop) == False]
         #drop projects poste de...
         df = df[df.projet.isin(rows_to_drop2) == False]
@@ -168,7 +187,7 @@ def TransformAssetVmr(df):
         #To fill n/a of date_msi column with with date today + 50 years
         df["date_msi"].fillna((dt.datetime.today() + pd.DateOffset(years=50)).strftime('%Y-%m-%d'), inplace=True)
 
-        #To select projects in planif with a cod date less than 2023. These projects should be moved to projects in planif  
+        #To select projects in planif with a cod date less than 2023. These projects should be moved to projects in prod 
         df_to_asset_vmr = df[df['date_msi'] < (dt.datetime.today() + pd.offsets.YearEnd()).strftime('%Y-%m-%d')]
 
 
@@ -215,40 +234,41 @@ def TransformAssetVmr(df):
         df_to_asset_vmr["technologie"] = df_to_asset_vmr["technologie"].str.replace("éolien ", "éolien")
 
         #To create a column rw_id of respective data frame
-        df = df.assign(rw_id=[1 + i for i in xrange(len(df))])[['rw_id'] + df.columns.tolist()]
+        df = df.assign(id=[1 + i for i in xrange(len(df))])[['id'] + df.columns.tolist()]
         df = df.assign(asset_id=[(len(asset_vmr)+1) + i for i in xrange(len(df))])[['asset_id'] + df.columns.tolist()]
-        df_to_asset_vmr = df_to_asset_vmr.assign(rw_id=[1 + i for i in xrange(len(df_to_asset_vmr))])[['rw_id'] + df_to_asset_vmr.columns.tolist()]
+        df_to_asset_vmr = df_to_asset_vmr.assign(id=[1 + i for i in xrange(len(df_to_asset_vmr))])[['id'] + df_to_asset_vmr.columns.tolist()]
         df_to_asset_vmr = df_to_asset_vmr.assign(asset_id=[1 + i for i in xrange(len(df_to_asset_vmr))])[['asset_id'] + df_to_asset_vmr.columns.tolist()]
 
         #To select only specific rows
-        df = df[['rw_id', "asset_id", 'projet_id', 'projet', 'technologie', 'cod', 'mw', 'taux_succès', 
-                 'puissance_installée', 'eoh', 'date_merchant', 'date_dementelement', 
-                 'repowering', 'date_msi', 'en_planif']]
+        df_asset_planif = df[['id', "asset_id", 'projet_id', 'projet', 'technologie', 
+                              'cod', 'mw', 'taux_succès', 'puissance_installée', 'eoh', 
+                              'date_merchant', 'date_dementelement', 'repowering', 'date_msi', 'en_planif']]
 
         #To select only specific rows(df containing hedge template data of projects in planification)
-        hedge_planif = df[["rw_id", "projet_id", "projet", "technologie", "cod", "date_merchant", "date_dementelement", 
+        hedge_planif = df[["id", "projet_id", "projet", "technologie", "cod", "date_merchant", "date_dementelement", 
                            "puissance_installée", "en_planif"]]
         hedge_planif = hedge_planif.assign(hedge_id=[(len(hedge_vmr)+1) + i for i in xrange(len(hedge_planif))])[['hedge_id'] + hedge_planif.columns.tolist()] 
-        hedge_planif = hedge_planif[["rw_id", "hedge_id", "projet_id", "projet", "technologie", "cod", "date_merchant", "date_dementelement", 
-                                     "puissance_installée", "en_planif"]]
+        hedge_planif = hedge_planif[["rw_id", "hedge_id", "projet_id", "projet",
+                                     "technologie", "cod", "date_merchant", 
+                                     "date_dementelement", "puissance_installée", "en_planif"]]
 
         #Select only specific columns 
-        df_to_asset_vmr = df_to_asset_vmr[['rw_id', 'projet_id', 'projet', 'technologie', 'cod', 'mw', 'taux_succès', 
+        df_to_asset_vmr = df_to_asset_vmr[['id', 'projet_id', 'projet', 'technologie', 'cod', 'mw', 'taux_succès', 
                                          'puissance_installée', 'eoh', 'date_merchant', 'date_dementelement', 
                                          'repowering', 'date_msi', 'en_planif']]
         #To export data as excel files
-        df_to_asset_vmr.to_excel(path_dir_temp+'planif_to_asset_vmr.xlsx', index=False, float_format="%.3f")#This file contains data of assets already in production but were in planification
-        hedge_planif.to_excel(path_dir_temp+"hedge_planif.xlsx", index=False, float_format="%.3f")#This file contains data tha will be used to create hedge template of assets that are in planification
+        #df_to_asset_vmr.to_excel(path_dir_temp+'planif_to_asset_vmr.xlsx', index=False, float_format="%.3f")#This file contains data of assets already in production but were in planification
+        #hedge_planif.to_excel(path_dir_temp+"hedge_planif.xlsx", index=False, float_format="%.3f")#This file contains data tha will be used to create hedge template of assets that are in planification
         #To export as excel file a partial template that contains only data of assets in planification
-        df.to_excel(path_dir_temp+'template_asset_planif.xlsx', index=False, float_format="%.3f")
+        #df.to_excel(path_dir_temp+'template_asset_planif.xlsx', index=False, float_format="%.3f")
 
         #==============================================================================
         #===================== Joining Asset VMR and Asset Planif =====================
         #==============================================================================
 
         #To import the partial templates 
-        df_asset_vmr = pd.read_excel(path_dir_temp+"template_asset_vmr.xlsx")
-        df_asset_planif = pd.read_excel(path_dir_temp+"template_asset_planif.xlsx")
+        #df_asset_vmr = pd.read_excel(path_dir_temp+"template_asset_vmr.xlsx")
+        #df_asset_planif = pd.read_excel(path_dir_temp+"template_asset_planif.xlsx")
 
         #To join the 2 partial template
         frames = [df_asset_vmr, df_asset_planif]
@@ -256,13 +276,15 @@ def TransformAssetVmr(df):
         asset_vmr_planif.reset_index(inplace=True, drop=True)
 
         #To create a column containing row number
-        asset_vmr_planif.drop("rw_id", axis=1, inplace=True)
-        asset_vmr_planif=asset_vmr_planif.assign(rw_id=[1 + i for i in xrange(len(asset_vmr_planif))])[['rw_id'] + asset_vmr_planif.columns.tolist()]
-        
+        asset_vmr_planif.drop("id", axis=1, inplace=True)
+        asset_vmr_planif=asset_vmr_planif.assign(id=[1 + i for i in xrange(len(asset_vmr_planif))])[['id'] + asset_vmr_planif.columns.tolist()]
+        print('template asset ends!:\n')
         return asset_vmr_planif
     except Exception as e:
         print("Template asset transformation error!: "+str(e))
 
+template_asset=Transform(asset_vmr=df_asset_vmr, asset_planif=df_asset_planif)        
+        
 def Load(dest_dir, src_flow, file_name):
     try:
         src_flow.to_csv(dest_dir+file_name+'.txt', index=False, sep=';')
@@ -270,4 +292,4 @@ def Load(dest_dir, src_flow, file_name):
     except Exception as e:
         print("Data load error!: "+str(e))
         
-Load(dest_dir=dest_dir, src_flow=asset_vmr_planif, file_name="template_asset_")
+Load(dest_dir=dest_dir, src_flow=asset_vmr_planif, file_name="template_asset")
