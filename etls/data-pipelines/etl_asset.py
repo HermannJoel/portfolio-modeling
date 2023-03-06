@@ -25,20 +25,12 @@ config.read(config_file)
 
 # Initialize Variables
 eng_conn=config['develop']['conn_str']
-dest_path=os.path.join(os.path.dirname("__file__"),config['develop']['dest_dir'])
-src_path=os.path.join(os.path.dirname("__file__"),config['develop']['src_dir'])
-df_prod=os.path.join(os.path.dirname("__file__"),config['develop']['prod'])
+dest_dir=os.path.join(os.path.dirname("__file__"),config['develop']['dest_dir'])
+src_dir=os.path.join(os.path.dirname("__file__"),config['develop']['src_dir'])
+prod=os.path.join(os.path.dirname("__file__"),config['develop']['prod'])
 asset=os.path.join(os.path.dirname("__file__"),config['develop']['asset'])
 hedge=os.path.join(os.path.dirname("__file__"),config['develop']['hedge'])
-
-dest_dir="D:/blx_mdp/cwd/in/"
-src_dir="D:/blx_mdp/cwd/temp/"
-prod="D:/blx_mdp/cwd/in/template_prod.xlsx"
-prod_pct="D:/blx_mdp/cwd/in/template_prod.xlsx" 
-mean_pct="D:/blx_mdp/cwd/in/template_prod.xlsx" 
-asset="D:/blx_mdp/cwd/in/template_asset.xlsx" 
-hedge="D:/blx_mdp/cwd/in/template_hedge.xlsx" 
-          
+         
 def Extract(prod_path, prod_pct_path, mean_pct_path, asset_path):
     ''' Function to extract excel files.
     Parameters
