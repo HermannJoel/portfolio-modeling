@@ -247,11 +247,8 @@ def Transform(asset_vmr, asset_planif, **kwargs):
         hedge_planif = df_[["id", "projet_id", "projet", "technologie", "cod", 
                             "date_merchant", "date_dementelement", 
                             "puissance_installée", "en_planif"]]
-        hedge_planif = hedge_planif.assign(hedge_id=[(len(hedge_vmr)+1) + i for i in xrange(len(hedge_planif))])[['hedge_id'] + hedge_planif.columns.tolist()] 
-        #hedge_planif = hedge_planif[["id", "hedge_id", "projet_id", "projet",
-                                     #"technologie", "cod", "date_merchant", 
-                                     #"date_dementelement", "puissance_installée", "en_planif"]]
-
+        hedge_planif = hedge_planif.assign(hedge_id=[(len(hedge_planif)+1) + i for i in xrange(len(hedge_planif))])[['hedge_id'] + hedge_planif.columns.tolist()]
+        hedge_planif=hedge_planif.assign(id=[1 + i for i in xrange(len(hedge_planif))])[['id'] + hedge_planif.columns.tolist()]
         #Select only specific columns 
         df_to_asset_vmr = df_to_asset_vmr[['id', 'projet_id', 'projet', 'technologie', 'cod', 'mw', 'taux_succès', 
                                          'puissance_installée', 'eoh', 'date_merchant', 'date_dementelement', 
