@@ -8,6 +8,7 @@ pysqldf=lambda q: sqldf(q, globals())
 from datetime import datetime
 import datetime as dt
 import sys
+pd.options.mode.chained_assignment = None
 
 # adding etls/functions to the system path
 sys.path.insert(0, 'D:/git-local-cwd/portfolio-modeling/etls/functions')
@@ -60,10 +61,24 @@ def Extract(hedge_vmr_path, hedge_planif_path):
 
 df_hedge_vmr, df_hedge_planif=Extract(hedge_vmr_path=hedge_vmr, hedge_planif_path=hedge_planif)
 
-def transform():
+def transform(hedge_vmr, hedge_planif, **kwargs):
+    """
+    udf Function to generate template hedge
+    Parameters
+    ===========
+    **kwargs
+        hedge_vmr: DataFrame
+                
+        hedge_planif: DataFrame
+    Returns
+    =======
+    hedge_template: DataFrame
+        template asset dataframe
+    """
     try:
         #===============     Hedge vmr     =======================
         #To create hedge df with vmr data
+        df_hedge_vmr=hedge_vmr
         df_hedge_vmr["profil"]=np.nan
         df_hedge_vmr["pct_couverture"]=np.nan
         df_hedge_vmr["contrepartie"]=np.nan
@@ -85,8 +100,8 @@ def transform():
         df_hedge_vmr.loc[df_hedge_vmr['type_hedge'] == "PPA", "pct_couverture"] = 1
 
         #===============     Hedge Planif     =======================
-        #To import hedge_planif data. this was generated when creating the template_asset. 
-        df_hedge_planif=pd.read_excel(path_dir_temp+"hedge_planif.xlsx")
+        #To import hedge_planif data. this was generated when creating the template_asset.
+        df_hedge_planif=hedge_planif
         df_hedge_planif["type_hedge"] = "CR"
         df_hedge_planif["profil"] = np.nan
         df_hedge_planif["pct_couverture"] = np.nan
@@ -108,11 +123,21 @@ def transform():
         frames = [df_hedge_vmr, df_hedge_planif]
         hedge_template = pd.concat(frames)
         hedge_template.reset_index(inplace=True, drop=True)
-
         hedge_template.drop("id", axis=1, inplace=True)
         hedge_template=hedge_template.assign(id=[1 + i for i in xrange(len(hedge_template))])[['id'] + hedge_template.columns.tolist()]
-  
+        
+        return hedge_template
+    
     except Exception as e:
         print("Template hedge transformation error!: "+str(e))
 
-template_hedge=transform()
+template_hedge=transform(hedge_vmr=df_hedge_vmr, hedge_planif=df_hedge_planif)
+
+def Load(dest_dir, src_flow, file_name):
+    try:
+        src_flow.to_excel(dest_dir+file_name+'.xlsx', index=False, float_format="%.4f")
+        print("Data loaded succesfully!")
+    except Exception as e:
+        print("Data load error!: "+str(e))
+        
+Load(dest_dir=dest_dir, src_flow=template_hedge, file_name="template_hedge")
