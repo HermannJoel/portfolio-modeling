@@ -39,8 +39,10 @@ def Extract(productible_path):
         path excel file containing data hedge in prod   
     Returns
     =======
-    template_prod: DataFrame
-        hedge vmr dataframe
+    df_productible: DataFrame
+        asset productibles dataframe
+    df_profile: DataFrame
+        asset productibles profile dataframe
     '''
     try:
         df_productible=ReadExcelFile(productible_path, sheet_name="Budget 2022", header=1)
@@ -104,7 +106,8 @@ def transform(data_productible, data_profile):
     except Exception as e:
         print("Template hedge transformation error!: "+str(e))
 
-df_prod, df_profile, df_mean_profile=transform(data_productible=df_productible, data_profile=df_profile)        
+df_prod, df_profile, df_mean_profile=transform(data_productible=df_productible, data_profile=df_profile) 
+
         
 def Load(dest_dir, src_productible, src_profile, src_mean_profile, file_name):
     try:
