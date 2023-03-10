@@ -46,7 +46,7 @@ def RemoveP50P90(data, *args, **kwargs):
     """
     To remove p50 p90 values based on date_debut and date_fin
     condition:The date value is prior to date_debut and post to date_fin    
-Args:
+*Args:
     data (DataFrame) :
     cod (str) : The arg takes the value 'cod' 
     dd (str) : The arg takes the value 'date_dementelement'
