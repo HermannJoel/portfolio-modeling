@@ -11,7 +11,7 @@ def RemoveP50P90TypeHedge(data, *args, **kwargs):
     """
     To remove p50 p90 values based on date_debut and date_fin
     condition:The date value is less than date_debut and higher than date_fin    
-Args:
+*Args:
     data (DataFrame) :
     sd (str) : The arg takes the value 'date_debut' 
     ed (str) : The arg takes the value 'date_fin'
@@ -151,8 +151,9 @@ def ReadExcelFile(path, **kwargs):
         return pd.read_excel(path, **kwargs)
     else: 
         return pd.read_csv(path, **kwargs)
+    
    
-def format(df, column, decimals=2):
+def format_float(df, column, decimals=2):
     df[column] = df[column].apply(lambda x: f"{x:,.{decimals}f}")
     return df
  
@@ -192,9 +193,6 @@ def dis_warn():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         
-      
-def InsertIntoSQL(data, **kwargs):
-    pass
     
 def postgressql_engine(): 
     engine = create_engine('postgresql+psycopg2://postgres:24Fe1988@localhost:5432/blxmdpdwdev') 
