@@ -8,9 +8,7 @@ pysqldf=lambda q: sqldf(q, globals())
 from datetime import datetime
 import datetime as dt
 import sys
-import warnings
-from pandas.core.common import SettingWithCopyWarning
-warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
+pd.options.mode.chained_assignment = None
 
 # adding etls/functions to the system path
 sys.path.insert(0, 'D:/git-local-cwd/portfolio-modeling/etls/functions')
@@ -25,7 +23,6 @@ config=configparser.ConfigParser()
 config.read(config_file)
 
 # Initialize Variables
-eng_conn=config['develop']['conn_str']
 dest_dir=os.path.join(os.path.dirname("__file__"),config['develop']['dest_dir'])
 temp_dir=os.path.join(os.path.dirname("__file__"),config['develop']['temp_dir'])
 src_dir=os.path.join(os.path.dirname("__file__"),config['develop']['src_dir'])

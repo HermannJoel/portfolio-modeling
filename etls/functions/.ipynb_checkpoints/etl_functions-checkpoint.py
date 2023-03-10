@@ -151,8 +151,9 @@ def ReadExcelFile(path, **kwargs):
         return pd.read_excel(path, **kwargs)
     else: 
         return pd.read_csv(path, **kwargs)
+    
    
-def format(df, column, decimals=2):
+def format_float(df, column, decimals=2):
     df[column] = df[column].apply(lambda x: f"{x:,.{decimals}f}")
     return df
  

@@ -23,7 +23,6 @@ config=configparser.ConfigParser()
 config.read(config_file)
 
 # Initialize Variables
-eng_conn=config['develop']['conn_str']
 dest_dir=os.path.join(os.path.dirname("__file__"),config['develop']['dest_dir'])
 temp_dir=os.path.join(os.path.dirname("__file__"),config['develop']['temp_dir'])
 src_dir=os.path.join(os.path.dirname("__file__"),config['develop']['src_dir'])
