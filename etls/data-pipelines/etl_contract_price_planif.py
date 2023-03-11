@@ -35,6 +35,7 @@ class etl_contract_prices(object):
     template_hedge_path : DataFrame
         template hedge
     df_hedge : DataFrame
+    
     Methods
     =======
     extract_data
@@ -44,14 +45,14 @@ class etl_contract_prices(object):
     load_prices_planif
         load transformed data in excel file
     """
-    def __init__(self, template_hedge_path, df_hedge=0):
+    def __init__(self, template_hedge_path, df_hedge_=0):
         self.template_hedge_path=template_hedge_path
-        self.df_hedge=df_hedge
+        self.df_hedge_=df_hedge_
     
     def extract_data(self):
         try:
-            df_hedge=ReadExcelFile(self.template_hedge_path)
-            return df_hedge
+            df_hedge_=ReadExcelFile(self.template_hedge_path)
+            return df_hedge_
         
         except Exception as e:
             print("Data Extration error!: "+str(e))
@@ -59,7 +60,7 @@ class etl_contract_prices(object):
     def transform_prices_planif(self, df_hedge=None):
         try:
             if df_hedge is None:
-                df_hedge = self.df_hedge
+                df_hedge = self.df_hedge_
                 df_hedge=df_hedge.loc[df_hedge['en_planif']=='Oui']
                 df_hedge.reset_index(drop=True, inplace=True)
                 #create a list containing assets under ppa contracts
@@ -110,7 +111,7 @@ class etl_contract_prices(object):
 
 if __name__ == '__main__':
     etl_contract_prices=etl_contract_prices(template_hedge)
-    etl_contract_prices.transform_prices_planif(df_hedge)
+    etl_contract_prices.transform_prices_planif(etl_contract_prices.df_hedge_ = etl_contract_prices.extract_data())
 
 """
     def Load(self, target_pth, src_data):
