@@ -8,23 +8,31 @@ import os
 import pathlib
 
 def RemoveP50P90TypeHedge(data, *args, **kwargs):
-    """
-    To remove p50 p90 values based on date_debut and date_fin
-    condition:The date value is less than date_debut and higher than date_fin    
-*Args:
-    data (DataFrame) :
-    sd (str) : The arg takes the value 'date_debut' 
-    ed (str) : The arg takes the value 'date_fin'
-    p50 (str) : The arg takes the value 'p50_adj'
-    p90 (str) : The arg takes the value of the column label 'p90_adj'
-    th (str) : The arg takes the value 'type_hedge'
-    date (str) : The arg takes the value 'date'
-    projetid (str) : The arg takes the value 'projet_id'
-    hedgeid (str) :  The arg takes the value 'hedge_id'
-    
-Parameters:
-    cond : (condition 1) 'date' column is less (in total seconds) than the given projet_id's first 'date_debut' value 
-    cond_2 : (condition 2) 'date' column is higher (in total seconds) than the given projet_id's first 'date_fin' value
+    """udf to remove p50 p90 values based on date_debut and date_fin
+    condition:The date value is less than date_debut and higher than date_fin 
+    Paremeters
+    ==========
+    *Args:
+        data: DataFrame 
+        sd: (str) 
+            The arg takes the value 'date_debut' 
+        ed: (str)
+            The arg takes the value 'date_fin'
+        p50: (str)
+            The arg takes the value 'p50_adj'
+        p90: (str) 
+            The arg takes the value of the column label 'p90_adj'
+        th: (str) 
+            The arg takes the value 'type_hedge'
+        date: (str) 
+            The arg takes the value 'date'
+        projetid: (str) 
+            The arg takes the value 'projet_id'
+        hedgeid: (str)  
+            The arg takes the value 'hedge_id'
+            
+        cond : (condition 1) 'date' column is less (in total seconds) than the given projet_id's first 'date_debut' value 
+        cond_2 : (condition 2) 'date' column is higher (in total seconds) than the given projet_id's first 'date_fin' value
     """
     cond=((data[kwargs['date']] - data.groupby([kwargs['projetid'], kwargs['hedgeid']])[kwargs['sd']].transform('first')).dt.total_seconds())<0
     data[kwargs['p50']] = np.where(cond,'', data[kwargs['p50']])
